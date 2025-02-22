@@ -277,33 +277,32 @@ class News
         const char* Left = left.c_str();
         const char* Right = right.c_str();
     
-        // 跳过左侧和右侧字符串前导空格
+        // Skip leading spaces in both left and right strings
         while (*Left == ' ') Left++;
         while (*Right == ' ') Right++;
     
-        // **确保双引号开头的字符串永远排在最前面**
+        // Ensure strings starting with a double quote always come first
         bool leftIsQuote = (*Left == '"');
         bool rightIsQuote = (*Right == '"');
-        
-        if (leftIsQuote && !rightIsQuote) return true;  // 左侧是双引号，右侧不是 → 左侧优先
-        if (rightIsQuote && !leftIsQuote) return false; // 右侧是双引号，左侧不是 → 右侧优先
     
-        // **正常比较逻辑**
+        if (leftIsQuote && !rightIsQuote) return true;  // Left starts with a quote, right does not → Left comes first
+        if (rightIsQuote && !leftIsQuote) return false; // Right starts with a quote, left does not → Right comes first
+    
+        // Standard comparison logic
         while (*Left && *Right) {
             if (*Left != *Right) {
-                return *Left < *Right; // 按字母顺序比较
+                return *Left < *Right; // Compare characters in lexicographical order
             }
             Left++;
             Right++;
     
-            // 继续跳过空格
+            // Continue skipping spaces
             while (*Left == ' ') Left++;
             while (*Right == ' ') Right++;
         }
     
         return *Left == '\0' && *Right != '\0';
     }
-    
 
     // Function to merge two sorted linked lists based on a specified mode
     NewsNode* mergeNewsNode(NewsNode* left, NewsNode* right, string mode)
@@ -394,13 +393,10 @@ class News
                 << formatCSVField(current->date) << "\n";  // Ensure each record is on a new line
             current = current->next;
         }
-
         // Close the file after writing
         file.close();
         cout << "Data successfully written to " << filename << endl;
     }
-
-
 };
 
 
