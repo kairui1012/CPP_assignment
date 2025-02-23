@@ -1021,7 +1021,6 @@ void linkedlist_Menu() {
                 cin.ignore();
                 getline(cin, target);
                 fixApostrophe(target);
-                cout << "Target: " << target << endl;
 
                 NewsNode* fakeCopy = bs.copyList(fake);
                 NewsNode* realCopy = bs.copyList(real);
