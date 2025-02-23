@@ -17,6 +17,9 @@ struct NewsNode
     {
         string title,text,subject,date;
         NewsNode* next;
+
+        NewsNode(const string &t = "", const string &te = "", const string &s = "", const string &d = "", NewsNode *n = nullptr)
+        : title(t), text(te), subject(s), date(d), next(n) {}
     };
 
 
@@ -84,79 +87,50 @@ string convertDateToSortableFormat(const string& inputDate) {
 }
 
 
-string trim(const string& str) {
-    size_t first = str.find_first_not_of(" \t\r\n");
-    if (first == string::npos) return "";
-    size_t last = str.find_last_not_of(" \t\r\n");
-    return str.substr(first, last - first + 1);
-}
-
-string removeSurroundingQuotes(const string& field) {
-    if (field.length() >= 2 && field.front() == '"' && field.back() == '"') {
-        return field.substr(1, field.length() - 2);
-    }
-    return field;
-}
-
-// Function to parse a CSV line into a dynamically allocated NewsNode
-NewsNode* parseCSVLineToNode(const string &line) 
+NewsNode *parseCSVLineToNode(const string &line)
 {
-    string title, text, subject, date;
+    string title, text, subject, date; // Use correct names
     string field;
     bool insideQuotes = false;
     int fieldIndex = 0;
 
-    for (size_t i = 0; i < line.length(); i++) 
+    for (size_t i = 0; i < line.length(); i++)
     {
         char c = line[i];
 
-        if (c == '"') 
+        if (c == '"')
         {
-            // Handle escaped double quotes within quoted fields
-            if (insideQuotes && i + 1 < line.length() && line[i + 1] == '"') 
+            if (insideQuotes && i + 1 < line.length() && line[i + 1] == '"')
             {
                 field += '"';
                 i++;
-            } 
-            else 
+            }
+            else
             {
                 insideQuotes = !insideQuotes;
             }
-        } 
-        else if (c == ',' && !insideQuotes) 
+        }
+        else if (c == ',' && !insideQuotes)
         {
-            // Store field in the corresponding NewsNode attribute
             if (fieldIndex == 0)
-                title = field.empty() ? "null" : field;
+                title = field;
             else if (fieldIndex == 1)
-                text = field.empty() ? "null" : field;
+                text = field;
             else if (fieldIndex == 2)
-                subject = field.empty() ? "null" : field;
-            else if (fieldIndex == 3)
-                date = field.empty() ? "null" : field;
+                subject = field;
 
             field.clear();
             fieldIndex++;
-        } 
-        else 
+        }
+        else
         {
             field += c;
         }
     }
 
-    // Assign the last field to the appropriate attribute
-    if (fieldIndex == 3)
-        date = field.empty() ? "null" : field;
+    date = field; // Last field
 
-    // Declare a NewsNode variable and then allocate it dynamically
-    NewsNode* node = new NewsNode;
-    node->title = removeSurroundingQuotes(title.empty() ? "null" : title);
-    node->text = text.empty() ? "null" : text;
-    node->subject = removeSurroundingQuotes(subject.empty() ? "null" : subject);
-    node->date = date.empty() ? "null" : date;
-    node->next = nullptr;
-
-    return node;
+    return new NewsNode(title, text, subject, date); // Now matches struct correctly!
 }
 
 // Function to format a field to ensure proper CSV formatting
@@ -370,30 +344,32 @@ class News
     }
 
 
-    // Function to write linked list data to a CSV file
-    void writeToCSV(NewsNode* head, const string& filename) {
+    void writeToCSV(NewsNode *head, const string &filename)
+    {
         ofstream file(filename);
-
-        // Check if the file opened successfully
-        if (!file.is_open()) {
+    
+        // Check if file opened successfully
+        if (!file.is_open())
+        {
             cout << "Error: Unable to open file " << filename << endl;
             return;
         }
-
+    
         // Write CSV header
         file << "Title,Text,Subject,Date\n";
-
-        // Iterate through the linked list and write each node's data
-        NewsNode* current = head;
-        while (current) 
+    
+        // Iterate through the linked list and write data
+        NewsNode *current = head;
+        while (current)
         {
-            file << formatCSVField(current->title) << ","
-                << formatCSVField(current->text) << ","
-                << formatCSVField(current->subject) << ","
-                << formatCSVField(current->date) << "\n";  // Ensure each record is on a new line
+            file << "\"" << current->title << "\","
+                 << "\"" << current->text << "\","
+                 << "\"" << current->subject << "\","
+                 << "\"" << current->date << "\"\n";
             current = current->next;
         }
         // Close the file after writing
+
         file.close();
         cout << "Data successfully written to " << filename << endl;
     }
@@ -676,6 +652,7 @@ class Words
 
         // Print total words written to the console
         cout << "Total words written to CSV: " << count << endl;
+        cout << "Data successfully written to " << filename << endl;
     }
 };
 
@@ -684,6 +661,7 @@ class Words
 int main() {
     NewsNode* newsHead = nullptr;
     WordNode* wordHead = nullptr;
+    NewsNode* trueNewsHead = nullptr;
     News newsObj;
     Words wordsObj;
 
@@ -692,8 +670,10 @@ int main() {
     clock_t start = clock();
     cout << "\nNow Running...\n";
     newsObj.insertDataToNode(newsHead, "cleaned_fake.csv");
+    newsObj.insertDataToNode(trueNewsHead, "true.csv");
 
-    cout << "\nTotal News Nodes: " << newsObj.calculateTotalNewsNode(newsHead) << endl;
+    cout << "\nTotal Fake News Nodes: " << newsObj.calculateTotalNewsNode(newsHead) << endl;
+    cout << "\nTotal True News Nodes: " << newsObj.calculateTotalNewsNode(trueNewsHead) << endl;
 
     clock_t end = clock();
     double duration = double(end - start) / CLOCKS_PER_SEC;
@@ -704,11 +684,14 @@ int main() {
     start = clock();
     cout << "\nNow Running First Question\n";
     cout << "\nTotal News Nodes: " << newsObj.calculateTotalNewsNode(newsHead) << endl;
-    newsHead = newsObj.sortNewsNode(newsHead, "title");
+    newsHead = newsObj.sortNewsNode(newsHead, "year");
+    trueNewsHead = newsObj.sortNewsNode(trueNewsHead, "year");
     //printNewsNodes(newsHead);
     newsObj.writeToCSV(newsHead, "sortedNews.csv");
+    newsObj.writeToCSV(trueNewsHead, "sortedTrueNews.csv");
     // printNewsNodes(newsHead);
     cout << "\nTotal News Nodes: " << newsObj.calculateTotalNewsNode(newsHead) << endl;
+    cout << "\nTotal True News Nodes: " << newsObj.calculateTotalNewsNode(trueNewsHead) << endl;
 
     end = clock();
     duration = double(end - start) / CLOCKS_PER_SEC;

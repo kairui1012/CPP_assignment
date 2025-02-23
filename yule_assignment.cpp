@@ -16,15 +16,10 @@ struct NewsNode
         : title(t), text(te), subject(s), date(d), next(n) {}
 };
 
-struct monthNode{
-    string month;
-    int count;
-    monthNode* next;
-};
 
 NewsNode *parseCSVLineToNode(const string &line)
 {
-    string title, date, category, content;
+    string title, text, subject, date; // Use correct names
     string field;
     bool insideQuotes = false;
     int fieldIndex = 0;
@@ -47,13 +42,12 @@ NewsNode *parseCSVLineToNode(const string &line)
         }
         else if (c == ',' && !insideQuotes)
         {
-            // 按照 fieldIndex 直接存入 NewsNode 对应字段
             if (fieldIndex == 0)
                 title = field;
             else if (fieldIndex == 1)
-                date = field;
+                text = field;
             else if (fieldIndex == 2)
-                category = field;
+                subject = field;
 
             field.clear();
             fieldIndex++;
@@ -64,11 +58,9 @@ NewsNode *parseCSVLineToNode(const string &line)
         }
     }
 
-    // 最后一个字段
-    content = field;
+    date = field; // Last field
 
-    // 直接创建 NewsNode
-    return new NewsNode(title, date, category, content);
+    return new NewsNode(title, text, subject, date); // Now matches struct correctly!
 }
 
 
@@ -84,21 +76,18 @@ void insertDataToNode(NewsNode *&head, string filepath)
 
     string line;
 
-    // 跳过 CSV 头部
-    if (getline(file, line))
-    {
-        cout << "Skipping CSV header: " << line << endl;
-    }
+    // Skip the CSV header without printing any message
+    if (getline(file, line)){}
 
     while (getline(file, line))
     {
         if (line.empty())
             continue;
 
-        // 解析行并创建 NewsNode
+        // Parse the line and create a NewsNode
         NewsNode *newNode = parseCSVLineToNode(line);
 
-        // 插入 Linked List
+        // Insert into the linked list
         if (!head)
         {
             head = newNode;
@@ -116,13 +105,18 @@ void insertDataToNode(NewsNode *&head, string filepath)
     cout << "Data successfully loaded into linked list." << endl;
 }
 
+
 void displayTesting(NewsNode *head, string mode)
 {
     if (!head)
         return;
 
+    int count = 0;
+
     while (head)
     {
+        count += 1;
+        cout << count << ". ";
         if (mode == "title")
             cout << head->title << endl;
         else if (mode == "text")
@@ -131,7 +125,7 @@ void displayTesting(NewsNode *head, string mode)
             cout << head->subject << endl;
         else if (mode == "date")
             cout << head->date << endl;
-
+        
         head = head->next;
     }
 }
@@ -305,71 +299,44 @@ int extractYear(const string &date)
     return -1; // Ensure non-year data doesn't cause incorrect matches
 }
 
-NewsNode *binarySearchFirst(NewsNode *head, string target_category, string target)
+NewsNode *binarySearch(NewsNode *head, string target_category, string target)
 {
-    int left = 0;
-    int right = getLength(head) - 1;
+    int left = 0, right = getLength(head) - 1;
     NewsNode *firstMatch = nullptr;
 
     while (left <= right)
     {
         int mid = left + (right - left) / 2;
         NewsNode *midNode = findMidNode(head, mid);
-
         string category_data = categoryDifferentiator(midNode, target_category);
-        if (target_category == "date")
+
+        int compare = (target_category == "date") 
+                      ? extractYear(category_data) - stoi(target) 
+                      : category_data.compare(target);
+
+        if (compare == 0)
         {
-            int category_year = extractYear(category_data);
-            int target_year = stoi(target);
-
-            if (category_year == target_year)
-            {
-                firstMatch = midNode;
-                right = mid - 1;
-            }
-            else if (category_year < target_year)
-            {
-                left = mid + 1;
-            }
-            else
-            {
-                right = mid - 1;
-            }
+            firstMatch = midNode;
+            right = mid - 1;
         }
-        else{
-            if (category_data == target)
-            {
-                firstMatch = midNode;
-                right = mid - 1;
-            }
-            else if (category_data < target)
-            {
-                left = mid + 1;
-            }
-            else
-            {
-                right = mid - 1;
-            }
+        else if (compare < 0)
+        {
+            left = mid + 1;
         }
-
+        else
+        {
+            right = mid - 1;
+        }
     }
+
+    if (!firstMatch)
+        cout << "No match found for " << target_category << " = " << target << endl;
+
     return firstMatch;
 }
 
-NewsNode* BinarySearchResult(NewsNode *head, string target_category, string target)
-{
-    NewsNode *start = binarySearchFirst(head, target_category, target);
-    if (!start)
-    {
-        cout << "No match found for " << target_category << " = " << target << endl;
-        return nullptr;
-    }
-    return start;
-
-}
-
 void PrintSearchResult(NewsNode *head, string target_category, string target){
-    NewsNode* start = BinarySearchResult(head, target_category, target);
+    NewsNode* start = binarySearch(head, target_category, target);
 
     while (start)
     {
@@ -443,124 +410,161 @@ int calculateTotalNewsNode(NewsNode* head)
     return x;
 }
 
-int getMonthNumber(const string &month)  // Convert month name to corresponding number
-{
-    if (month == "January" || month == "Jan") return 1;
-    if (month == "February" || month == "Feb") return 2;
-    if (month == "March" || month == "Mar") return 3;
-    if (month == "April" || month == "Apr") return 4;
-    if (month == "May") return 5;
-    if (month == "June" || month == "Jun") return 6;
-    if (month == "July" || month == "Jul") return 7;
-    if (month == "August" || month == "Aug") return 8;
-    if (month == "September" || month == "Sep") return 9;
-    if (month == "October" || month == "Oct") return 10;
-    if (month == "November" || month == "Nov") return 11;
-    if (month == "December" || month == "Dec") return 12;
-    return -1;
+// get month name in string based on month number
+string getMonthName(int monthNumber) {  
+    static unordered_map<int, string> monthMap = {
+        {1, "January"}, {2, "February"}, {3, "March"}, {4, "April"}, {5, "May"}, {6, "June"},
+        {7, "July"}, {8, "August"}, {9, "September"}, {10, "October"}, {11, "November"}, {12, "December"}
+    };
+    return monthMap.count(monthNumber) ? monthMap[monthNumber] : "Invalid Month";
 }
 
-string getMonthName(int monthNumber) {
-    switch (monthNumber) {
-        case 1: return "January";
-        case 2: return "February";
-        case 3: return "March";
-        case 4: return "April";
-        case 5: return "May";
-        case 6: return "June";
-        case 7: return "July";
-        case 8: return "August";
-        case 9: return "September";
-        case 10: return "October";
-        case 11: return "November";
-        case 12: return "December";
-        default: return "Invalid Month";
-    }
+
+// return month number in integer
+int getMonthNum(const string &month) {  
+    static unordered_map<string, int> monthMap = {
+        {"January", 1}, {"February", 2}, {"March", 3}, {"April", 4}, {"May", 5}, {"June", 6},
+        {"July", 7}, {"August", 8}, {"September", 9}, {"October", 10}, {"November", 11}, {"December", 12}
+    };
+    return monthMap.count(month) ? monthMap[month] : -1;
 }
 
-void calculateFakePercentage(NewsNode* fake, NewsNode* real)
-{
-    // Step 1: Sort and extract 2016 fake political news
-    NewsNode* fake_news = copyList(fake);
-    fake_news = sortNode(fake_news, "subject"); 
-    NewsNode* fake_politic_head = BinarySearchResult(fake_news, "subject", "politics");
-
-    if (!fake_politic_head) {
-        cout << "No fake political news found.\n";
-        return;
-    }
-
-    // Step 2: Extract 2016 fake political news
-    unordered_map<int, int> fake_count;
-    unordered_map<int, int> real_count;
-
-    NewsNode* temp = fake_politic_head;
-    while (temp) {
+void extractNewsCount(NewsNode* head, const string &category, unordered_map<int, int> &countMap) {
+    for (NewsNode* temp = binarySearch(sortNode(copyList(head), "subject"), "subject", category); temp; temp = temp->next) {
         stringstream ss(temp->date);
         string monthStr, dayStr, yearStr;
         ss >> monthStr >> dayStr >> yearStr;
-
-        if (yearStr == "2016") {
-            int month = getMonthNumber(monthStr);
-            if (month != -1) fake_count[month]++;
-        }
-        temp = temp->next;
+        if (yearStr == "2016") countMap[getMonthNum(monthStr)]++;
     }
+}
 
-    // Step 3: Sort and extract 2016 real political news
-    NewsNode* real_news = copyList(real);
-    real_news = sortNode(real_news, "subject");
-    NewsNode* real_politic_head = BinarySearchResult(real_news, "subject", "politicsNews");
+void calculateFakePercentage(NewsNode* fake, NewsNode* real) {
+    unordered_map<int, int> fake_count, real_count;
+    extractNewsCount(fake, "politics", fake_count);
+    extractNewsCount(real, "politicsNews", real_count);
 
-    if (!real_politic_head) {
-        cout << "No real political news found.\n";
-        return;
-    }
-
-    temp = real_politic_head;
-    while (temp) {
-        stringstream ss(temp->date);
-        string monthStr, dayStr, yearStr;
-        ss >> monthStr >> dayStr >> yearStr;
-
-        if (yearStr == "2016") {
-            int month = getMonthNumber(monthStr);
-            if (month != -1) real_count[month]++;
-        }
-        temp = temp->next;
-    }
-
-    // Step 4: Print percentages
     cout << "Percentage of fake political news in each month of 2016\n\n";
-
     for (int month = 1; month <= 12; month++) {
-        int fake_news_count = fake_count[month];
-        int real_news_count = real_count[month];
-        int total = fake_news_count + real_news_count;
+        int total = fake_count[month] + real_count[month];
+        int fake_percentage = (total == 0) ? 0 : (fake_count[month] * 100) / total;
 
-        cout << endl << fake_news_count << " " << real_news_count << " " << total << endl;
-        int fake_percentage = (total == 0) ? 0 : (fake_news_count * 100) / total;
-
-        cout << left << setw(12) << getMonthName(month) << "| ";
-        for (int i = 1; i <= fake_percentage; i++) {
-            cout << "*";
-        }
-        cout << "\t" << fake_percentage << "%" << endl;
+        cout << left << setw(12) << getMonthName(month) << "| " 
+             << string(fake_percentage, '*') << "\t" << fake_percentage << "%" << endl;
     }
-
     cout << "\nEach '*' represents 1% of the fake political news\n";
 }
 
+void mainMenu(NewsNode* fake, NewsNode* real){
+    string choice;
 
+    bool exit = false;
+
+    while (!exit){
+        cout << "---------------------- Main Menu ----------------------" << endl;
+        cout << "1. Display data" << endl;
+        cout << "2. Sort data" << endl;
+        cout << "3. Search data" << endl;
+        cout << "4. Write data to CSV" << endl;
+        cout << "5. Calculate total news node" << endl;
+        cout << "6. Calculate fake news percentage" << endl;
+        cout << "7. Exit" << endl;
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        if (choice == "1"){
+            cout << "-------------- Displaying Menu --------------" << endl;
+            cout << "1. Display fake news data" << endl;
+            cout << "2. Display true news data" << endl;
+            cout << "3. Display both" << endl;
+            cout << "4. Return to Main Menu" << endl;
+            cout << "Enter your choice: ";
+            cin >> choice;
+
+            if (choice == "1"){
+                cout << "-------------- Displaying fake news data --------------" << endl;
+                displayTesting(fake, "title");
+            }
+            else if (choice == "2"){
+                cout << "-------------- Displaying true news data --------------" << endl;
+                displayTesting(real, "title");
+            }
+            else if (choice == "3"){
+                cout << "-------------- Displaying fake news data --------------" << endl;
+                displayTesting(fake, "title");
+                cout << "-------------- Displaying true news data --------------" << endl;
+                displayTesting(real, "title");
+            }
+            else if (choice == "4"){
+                choice = "-1";
+                continue;
+            }
+            else{
+                cout << "Invalid choice. Please try again." << endl;
+            }
+            choice = "-1";
+            continue;
+        }
+        else if (choice == "2"){
+            string sort_choice;
+            cout << "Enter the category you want to sort (title, text, subject, date): ";
+            cin >> sort_choice;
+
+            cout << "Sorting fake news data based on " << sort_choice << "..." << endl;
+            fake = sortNode(fake, sort_choice);
+            cout << "Sorting true news data based on " << sort_choice << "..." << endl;
+            real = sortNode(real, sort_choice);
+
+            cout << "Data sorted successfully." << endl;
+        }
+        else if (choice == "3"){
+            string search_choice, target;
+            cout << "Enter the category you want to search (title, text, subject, date): ";
+            cin >> search_choice;
+            cout << "Enter the target value: ";
+            cin.ignore();
+            getline(cin, target);
+
+            cout << "Searching for " << search_choice << " = " << target << "..." << endl;
+            cout << "-------------- Search Result --------------" << endl;
+            cout << "-------------- Fake News --------------" << endl;
+            PrintSearchResult(fake, search_choice, target);
+            cout << "-------------- True News --------------" << endl;
+            PrintSearchResult(real, search_choice, target);
+        }
+        else if (choice == "4"){
+            string filename;
+            cout << "Enter the filename you want to write to: ";
+            cin >> filename;
+
+            cout << "Writing fake news data to " << filename << "..." << endl;
+            writeToCSV(fake, filename);
+            cout << "Writing true news data to " << filename << "..." << endl;
+            writeToCSV(real, filename);
+        }
+        else if (choice == "5"){
+            cout << "Total news node in fake news data: " << calculateTotalNewsNode(fake) << endl;
+            cout << "Total news node in true news data: " << calculateTotalNewsNode(real) << endl;
+        }
+        else if (choice == "6"){
+            calculateFakePercentage(fake, real);
+        }
+        else if (choice == "7"){
+            exit = true;
+        }
+        else{
+            cout << "Invalid choice. Please try again." << endl;
+        }
+
+    }    
+}
 
 int main()
 {
     NewsNode* fakeNewsHead = nullptr;
-    NewsNode* trueNewsHead = nullptr;
-    insertDataToNode(fakeNewsHead, "C:\\Users\\yeo yu le\\Downloads\\final_fake.csv");
-    insertDataToNode(trueNewsHead, "C:\\Users\\yeo yu le\\Downloads\\true.csv");
-
-    calculateFakePercentage(fakeNewsHead, trueNewsHead);
+    NewsNode* trueNewsHead = nullptr; 
+    insertDataToNode(fakeNewsHead, "cleaned_fake.csv");
+    insertDataToNode(trueNewsHead, "true.csv");
+    mainMenu(fakeNewsHead, trueNewsHead);
 
     return 0;
 }

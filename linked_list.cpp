@@ -10,6 +10,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <chrono>
+#include <algorithm>
 #ifdef _WIN32
     #include <windows.h>
     #include <psapi.h>
@@ -664,11 +665,11 @@ class BinarySearch{
             string category_data;
             if (category == "title")
             {
-                category_data = finder->title;
+                category_data = trim(finder->title);
             }
             else if (category == "text")
             {
-                category_data = finder->text;
+                category_data = trim(finder->text);
             }
             else if (category == "subject")
             {
@@ -696,6 +697,20 @@ class BinarySearch{
             return -1; // Ensure non-year data doesn't cause incorrect matches
         }
         
+        string trim(string str) {
+            // Remove **ALL** leading spaces (including non-breaking spaces)
+            str.erase(str.begin(), find_if(str.begin(), str.end(), [](unsigned char ch) {
+                return !isspace(ch) && ch != '\xA0';  // Remove Unicode non-breaking spaces
+            }));
+        
+            // Remove **ALL** trailing spaces
+            str.erase(find_if(str.rbegin(), str.rend(), [](unsigned char ch) {
+                return !isspace(ch) && ch != '\xA0';
+            }).base(), str.end());
+        
+            return str;
+        }
+
         NewsNode *binarySearch(NewsNode *head, string target_category, string target)
         {
             int left = 0, right = getLength(head) - 1;
@@ -709,8 +724,8 @@ class BinarySearch{
         
                 int compare = (target_category == "date") 
                             ? extractYear(category_data) - stoi(target) 
-                            : category_data.compare(target);
-        
+                            : category_data.compare(trim(target));
+                
                 if (compare == 0)
                 {
                     firstMatch = midNode;
@@ -728,9 +743,7 @@ class BinarySearch{
         
             if (!firstMatch)
                 cout << "No match found for " << target_category << " = " << target << endl;
-        
-            cout << "Comparing target: [" << target << "] with dataset title: [" << firstMatch << "]" << endl;
-
+    
             return firstMatch;
         }
         
@@ -859,6 +872,15 @@ double measureExecutionTime(function<void()> func, double &memoryUsedMB) {
     return chrono::duration<double>(end - start).count();
 }
 
+void fixApostrophe(string &str) {
+    for (size_t i = 0; i < str.size(); i++) {
+        if (str[i] == '\0') {  // Detect null character (corruption)
+            str[i] = '\xE2';   // Replace with first byte of ‘ (0xE2)
+            str.insert(i + 1, "\x80\x99");  // Insert remaining bytes
+        }
+    }
+}
+
 void linkedlist_Menu() {
     NewsNode* fake = nullptr;
     NewsNode* real = nullptr;
@@ -873,10 +895,14 @@ void linkedlist_Menu() {
     double realMemoryUsedMB;
     double loadTime = measureExecutionTime([&]() {
         news.insertDataToNode(fake, "cleaned_fake.csv");
-        news.insertDataToNode(real, "true.csv");
     },memoryUsedMB);
-    cout << "Execution Time for Loading Data: " << loadTime << " seconds\n";
-    cout << "Memory Usage for Loading Data: " << memoryUsedMB << " MB\n";
+    double time = measureExecutionTime([&]() {
+        news.insertDataToNode(real, "true.csv");
+    },realMemoryUsedMB);
+    cout << "Execution Time for Loading Fake Data: " << loadTime << " seconds\n";
+    cout << "Execution Time for Loading Real Data: " << time << " seconds\n";
+    cout << "Memory Usage for Loading Fake Data: " << memoryUsedMB << " MB\n";
+    cout << "Memory Usage for Loading Real Data: " << realMemoryUsedMB << " MB\n";
 
     bool exit = false;
     while (!exit) {
@@ -973,7 +999,8 @@ void linkedlist_Menu() {
             
         }
         else if (choice == "3") {
-            string dataset, search_choice, target;
+            string dataset, search_choice, target; 
+
             cout << "Enter the dataset you want to search (fake, true): ";
             cin >> dataset;
             if (dataset != "fake" && dataset != "true") {
@@ -993,6 +1020,7 @@ void linkedlist_Menu() {
                 cout << "Enter the target value: ";
                 cin.ignore();
                 getline(cin, target);
+                fixApostrophe(target);
                 cout << "Target: " << target << endl;
 
                 NewsNode* fakeCopy = bs.copyList(fake);

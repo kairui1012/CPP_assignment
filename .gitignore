@@ -1,0 +1,25 @@
+# Ignore system folders
+.android/
+.config/
+.gradle/
+.vscode/
+.nuget/
+.ssh/
+AppData/
+OneDrive/
+
+# Ignore temporary files
+*.exe
+*.log
+*.dat
+*.tmp
+*.rar
+*.zip
+
+# Ignore specific directories
+/Downloads/
+/Desktop/
+/Music/
+/Videos/
+/Pictures/
+/Documents/
