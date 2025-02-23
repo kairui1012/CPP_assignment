@@ -10,7 +10,6 @@
 #include <sstream>
 #include <unordered_map>
 #include <chrono>
-#include <algorithm>
 #ifdef _WIN32
     #include <windows.h>
     #include <psapi.h>
@@ -325,8 +324,18 @@ class News
 
     void writeToCSV(NewsNode *head, const string &filename)
     {
-        ofstream file(filename);
-    
+        // Copy the filename to ensure it is modifiable
+        string modifiableFilename = filename;
+
+        // Check if the filename ends with ".csv"
+        if (modifiableFilename.length() < 4 || 
+            modifiableFilename.compare(modifiableFilename.length() - 4, 4, ".csv") != 0) {
+            modifiableFilename.append(".csv"); 
+        }
+
+        // Open the file for writing
+        ofstream file(modifiableFilename);
+
         // Check if file opened successfully
         if (!file.is_open())
         {
@@ -347,7 +356,7 @@ class News
                  << "\"" << current->date << "\"\n";
             current = current->next;
         }
-    
+
         // Close the file
         file.close();
         cout << "Data successfully written to " << filename << endl;
@@ -635,6 +644,23 @@ class Words
         cout << "Total words written to CSV: " << count << endl;
         cout << "Data successfully written to " << filename << endl;
     }
+
+    void printResult(WordNode* head,string condition) 
+    {
+        int times = 1;
+        cout << endl << "Top 20 Most Words in  "<< condition << ":" << endl;
+        while (times < 21 && head != nullptr) 
+        {   
+        
+            cout << setw(2) << times << ", " 
+                 << left << setw(15) << head->text  
+                 << " has: " << head->count << endl;
+            
+            head = head->next;
+            times++;
+        }
+    }
+
 };
 
 class BinarySearch{
@@ -665,11 +691,11 @@ class BinarySearch{
             string category_data;
             if (category == "title")
             {
-                category_data = trim(finder->title);
+                category_data = finder->title;
             }
             else if (category == "text")
             {
-                category_data = trim(finder->text);
+                category_data = finder->text;
             }
             else if (category == "subject")
             {
@@ -697,20 +723,6 @@ class BinarySearch{
             return -1; // Ensure non-year data doesn't cause incorrect matches
         }
         
-        string trim(string str) {
-            // Remove **ALL** leading spaces (including non-breaking spaces)
-            str.erase(str.begin(), find_if(str.begin(), str.end(), [](unsigned char ch) {
-                return !isspace(ch) && ch != '\xA0';  // Remove Unicode non-breaking spaces
-            }));
-        
-            // Remove **ALL** trailing spaces
-            str.erase(find_if(str.rbegin(), str.rend(), [](unsigned char ch) {
-                return !isspace(ch) && ch != '\xA0';
-            }).base(), str.end());
-        
-            return str;
-        }
-
         NewsNode *binarySearch(NewsNode *head, string target_category, string target)
         {
             int left = 0, right = getLength(head) - 1;
@@ -724,8 +736,8 @@ class BinarySearch{
         
                 int compare = (target_category == "date") 
                             ? extractYear(category_data) - stoi(target) 
-                            : category_data.compare(trim(target));
-                
+                            : category_data.compare(target);
+        
                 if (compare == 0)
                 {
                     firstMatch = midNode;
@@ -743,7 +755,9 @@ class BinarySearch{
         
             if (!firstMatch)
                 cout << "No match found for " << target_category << " = " << target << endl;
-    
+        
+            cout << "Comparing target: [" << target << "] with dataset title: [" << firstMatch << "]" << endl;
+
             return firstMatch;
         }
         
@@ -872,15 +886,6 @@ double measureExecutionTime(function<void()> func, double &memoryUsedMB) {
     return chrono::duration<double>(end - start).count();
 }
 
-void fixApostrophe(string &str) {
-    for (size_t i = 0; i < str.size(); i++) {
-        if (str[i] == '\0') {  // Detect null character (corruption)
-            str[i] = '\xE2';   // Replace with first byte of ‘ (0xE2)
-            str.insert(i + 1, "\x80\x99");  // Insert remaining bytes
-        }
-    }
-}
-
 void linkedlist_Menu() {
     NewsNode* fake = nullptr;
     NewsNode* real = nullptr;
@@ -895,14 +900,10 @@ void linkedlist_Menu() {
     double realMemoryUsedMB;
     double loadTime = measureExecutionTime([&]() {
         news.insertDataToNode(fake, "cleaned_fake.csv");
-    },memoryUsedMB);
-    double time = measureExecutionTime([&]() {
         news.insertDataToNode(real, "true.csv");
-    },realMemoryUsedMB);
-    cout << "Execution Time for Loading Fake Data: " << loadTime << " seconds\n";
-    cout << "Execution Time for Loading Real Data: " << time << " seconds\n";
-    cout << "Memory Usage for Loading Fake Data: " << memoryUsedMB << " MB\n";
-    cout << "Memory Usage for Loading Real Data: " << realMemoryUsedMB << " MB\n";
+    },memoryUsedMB);
+    cout << "Execution Time for Loading Data: " << loadTime << " seconds\n";
+    cout << "Memory Usage for Loading Data: " << memoryUsedMB << " MB\n";
 
     bool exit = false;
     while (!exit) {
@@ -985,8 +986,11 @@ void linkedlist_Menu() {
                     printNewsNodes(fakeCopy);
                     printNewsNodes(realCopy);
                 } else {  // Write to CSV
-                    news.writeToCSV(fakeCopy, "sorted_fake_news");
-                    news.writeToCSV(realCopy, "sorted_true_news");
+                    string filename;
+                    cout << "Enter the filename to save sorted data: ";
+                    cin >> filename;
+                    news.writeToCSV(fakeCopy, filename);
+                    news.writeToCSV(realCopy, filename);
                 }
     
                 // Show sorting execution time AFTER displaying/writing data
@@ -999,8 +1003,7 @@ void linkedlist_Menu() {
             
         }
         else if (choice == "3") {
-            string dataset, search_choice, target; 
-
+            string dataset, search_choice, target;
             cout << "Enter the dataset you want to search (fake, true): ";
             cin >> dataset;
             if (dataset != "fake" && dataset != "true") {
@@ -1020,7 +1023,7 @@ void linkedlist_Menu() {
                 cout << "Enter the target value: ";
                 cin.ignore();
                 getline(cin, target);
-                fixApostrophe(target);
+                cout << "Target: " << target << endl;
 
                 NewsNode* fakeCopy = bs.copyList(fake);
                 NewsNode* realCopy = bs.copyList(real);
@@ -1070,21 +1073,71 @@ void linkedlist_Menu() {
             cout << "Execution Time for Calculating Fake News Percentage: " << percentageTime << " seconds\n";
             cout << "Memory Usage for Calculating Fake News Percentage: " << memoryUsedMB << " MB\n";
         }
-        else if (choice == "7"){
-            NewsNode* fakeNewsHead = bs.copyList(fake);
-            fakeNewsHead = news.sortNewsNode(fakeNewsHead, "subject");
+        else if (choice == "7") {
 
-            string condition = "Government News";
-            cout << "\nNow checking " <<condition<< " word count\n\n ";
+            NewsNode* fakeNewsHead = bs.copyList(fake);
+            string condition;
+            cout << "Enter the subject you want to view (Press Enter for default: 'Government News'): ";
+            cin.ignore(); 
+            getline(cin, condition); 
+
+            if (condition.empty()) {
+                condition = "Government News";
+            }
+            bool isValidSubject = false;
+            while (fakeNewsHead != nullptr) {  
+                if (fakeNewsHead->subject == condition) {
+                    isValidSubject = true;
+                    break;
+                }
+                fakeNewsHead = fakeNewsHead->next;
+            }
+
+            while (!isValidSubject) {
+                cout << "Invalid subject. Please enter a valid subject (Press Enter for 'Government News'): ";
+                getline(cin, condition);
+                
+                if (condition.empty()) {
+                    condition = "Government News";
+                    break;
+                }
+                isValidSubject = false;
+                NewsNode* temp = bs.copyList(fake);  
+                while (temp != nullptr) {
+                    if (temp->subject == condition) {
+                        isValidSubject = true;
+                        break;
+                    }
+                    temp = temp->next;
+                }
+            }
+            fakeNewsHead = bs.copyList(fake);
+            fakeNewsHead = news.sortNewsNode(fakeNewsHead, "subject");
+            string chosen;
+            cout << "Display the data in: \n\t1. Terminal\n\t2. CSV File \nChoose (1/2): ";
+            cin >> chosen;
+        
+            if (chosen != "1" && chosen != "2") {
+                cout << "Invalid choice. Please try again." << endl;
+                choice = "-1";
+                return;
+            }
+        
+            cout << "\nNow checking " << condition << " word count\n\n";
+    
             double execution_time = measureExecutionTime([&]() {
                 fakeNewsHead = deleteDuplicates(fakeNewsHead, condition);
                 wordsObj.insertDataToWordNode(fakeNewsHead, wordHead);
                 wordHead = wordsObj.calculateWordCount(wordHead);
-            
                 cout << "Before Sorting Words...\n";
                 wordHead = wordsObj.mergeSort(wordHead);
-            },memoryUsedMB);
-            wordsObj.outputSortWordsFile(wordHead, "sortedWords.csv");
+            }, memoryUsedMB);
+        
+            if (chosen == "1") {  // Show output in terminal
+                wordsObj.printResult(wordHead,condition);
+            } else {  // Write output to a CSV file
+                wordsObj.outputSortWordsFile(wordHead, "sortedWords.csv");
+            }
             cout << "Execution Time for Filtering Frequently Used Words: " << execution_time << " seconds\n";
             cout << "Memory Usage for Filtering Frequently Used Words: " << memoryUsedMB << " MB\n";
         }
