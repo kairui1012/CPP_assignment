@@ -229,26 +229,26 @@ class News
         const char* Left = left.c_str();
         const char* Right = right.c_str();
     
-        // 跳过左侧和右侧字符串前导空格
+        // Skip leading spaces on both left and right strings
         while (*Left == ' ') Left++;
         while (*Right == ' ') Right++;
     
-        // **确保双引号开头的字符串永远排在最前面**
+        // Ensure that strings starting with double quotes always come first
         bool leftIsQuote = (*Left == '"');
         bool rightIsQuote = (*Right == '"');
         
-        if (leftIsQuote && !rightIsQuote) return true;  // 左侧是双引号，右侧不是 → 左侧优先
-        if (rightIsQuote && !leftIsQuote) return false; // 右侧是双引号，左侧不是 → 右侧优先
+        if (leftIsQuote && !rightIsQuote) return true; // Left starts with a quote, right does not → Left comes first
+        if (rightIsQuote && !leftIsQuote) return false; // Right starts with a quote, left does not → Right comes first
     
-        // **正常比较逻辑**
+        // Normal comparison logic
         while (*Left && *Right) {
             if (*Left != *Right) {
-                return *Left < *Right; // 按字母顺序比较
+                return *Left < *Right; // Compare characters lexicographically
             }
             Left++;
             Right++;
     
-            // 继续跳过空格
+            // Continue skipping spaces
             while (*Left == ' ') Left++;
             while (*Right == ' ') Right++;
         }
